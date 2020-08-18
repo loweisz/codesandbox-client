@@ -3,10 +3,21 @@ import Downshift from 'downshift';
 
 import { Pagination } from 'react-instantsearch/dom';
 
-import { ENTER, ARROW_RIGHT } from '@codesandbox/common/lib/utils/keycodes';
+import {
+  ENTER,
+  ARROW_RIGHT,
+  SPACE,
+  BACKSPACE,
+} from '@codesandbox/common/lib/utils/keycodes';
 
 import DependencyHit from '../DependencyHit';
-import { AutoCompleteInput, SuggestionInput } from './elements';
+import {
+  AutoCompleteInput,
+  PrevInput,
+  SuggestionInput,
+  InputContainer,
+  TextInput,
+} from './elements';
 
 /* eslint-disable no-param-reassign */
 function getName(value: string) {
@@ -51,12 +62,13 @@ function getHit(value: string, hits) {
 class RawAutoComplete extends React.Component {
   state = {
     value: '',
+    packages: [],
   };
 
   render() {
     const {
       onSelect,
-      onManualSelect,
+      onConfirm,
       onHitVersionChange,
       hits,
       refine,
@@ -88,67 +100,121 @@ class RawAutoComplete extends React.Component {
       <Downshift itemToString={h => (h ? h.name : h)} onSelect={onSelect}>
         {({ getInputProps, getItemProps, highlightedIndex }) => (
           <div>
-            {highlightedIndex == null && (
-              <SuggestionInput as="div">
-                {getRefinement()}
-                <span
-                  css={{
-                    color: 'var(--color-white-3)',
-                  }}
-                >
-                  {autoCompletedQuery(true)}
-                </span>
-              </SuggestionInput>
-            )}
-            <AutoCompleteInput
-              autoFocus
-              {...getInputProps({
-                innerRef(ref) {
-                  if (ref) {
-                    if (
-                      document.activeElement &&
-                      document.activeElement.tagName !== 'SELECT'
-                    ) {
-                      ref.focus();
-                    }
-                  }
-                },
-                value: this.state.value,
-                placeholder: 'Search or enter npm dependency',
+            <InputContainer>
+              {this.state.packages.length > 0 && (
+                <PrevInput as="div">
+                  <span
+                    css={{
+                      color: 'var(--color-white-3)',
+                    }}
+                  >
+                    {this.state.packages.join(' ')}
+                  </span>
+                </PrevInput>
+              )}
+              <TextInput>
+                {highlightedIndex == null && this.state.value && (
+                  <SuggestionInput as="div">
+                    {getRefinement()}
+                    <span
+                      css={{
+                        color: 'var(--color-white-3)',
+                      }}
+                    >
+                      {autoCompletedQuery(true)}
+                    </span>
+                  </SuggestionInput>
+                )}
+                <AutoCompleteInput
+                  autoFocus
+                  {...getInputProps({
+                    innerRef(ref) {
+                      if (ref) {
+                        if (
+                          document.activeElement &&
+                          document.activeElement.tagName !== 'SELECT'
+                        ) {
+                          ref.focus();
+                        }
+                      }
+                    },
+                    value: this.state.value,
+                    placeholder: 'Search or enter npm dependency',
 
-                onChange: e => {
-                  const name = e.target.value;
+                    onChange: e => {
+                      const name = e.target.value;
 
-                  this.setState({ value: name }, () => {
-                    if (name.indexOf('@') === 0) {
-                      const parts = name.split('@');
+                      this.setState({ value: name }, () => {
+                        if (name.indexOf('@') === 0) {
+                          const parts = name.split('@');
 
-                      refine(`@${parts[1]}`);
-                      return;
-                    }
+                          refine(`@${parts[1]}`);
+                          return;
+                        }
 
-                    const parts = name.split('@');
-                    if (parts) {
-                      requestAnimationFrame(() => {
-                        refine(`${parts[0]}`);
+                        const parts = name.split('@');
+                        if (parts) {
+                          requestAnimationFrame(() => {
+                            refine(`${parts[0]}`);
+                          });
+                        }
                       });
-                    }
-                  });
-                },
-
-                onKeyUp: e => {
-                  // If enter with no selection
-                  if (e.keyCode === ENTER) {
-                    onManualSelect(autoCompletedQuery() || e.target.value);
-                  } else if (
-                    autoCompletedQuery() &&
-                    e.keyCode === ARROW_RIGHT
-                  ) {
-                    this.setState({ value: autoCompletedQuery() });
-                  }
-                },
-              })}
-            />
+                    },
+                    onKeyUp: e => {
+                      switch (e.keyCode) {
+                        case BACKSPACE: {
+                          if (
+                            this.state.value.length < 1 &&
+                            this.state.packages.length > 0
+                          ) {
+                            this.setState(({ packages }) => ({
+                              packages: packages.filter(
+                                (_, i) => i !== packages.length - 1
+                              ),
+                            }));
+                          }
+                          break;
+                        }
+                        case SPACE: {
+                          const newPackage =
+                            autoCompletedQuery() || e.target.value.trim();
+                          this.setState(({ packages }) => ({
+                            packages: [...packages, newPackage],
+                            value: '',
+                          }));
+                          break;
+                        }
+                        case ENTER: {
+                          const newPackage =
+                            autoCompletedQuery() || e.target.value.trim();
+                          this.setState(
+                            ({ packages }) => ({
+                              packages: [...packages, newPackage],
+                              value: '',
+                            }),
+                            () => {
+                              onConfirm(this.state.packages);
+                            }
+                          );
+                          break;
+                        }
+                        default: {
+                          if (
+                            autoCompletedQuery() &&
+                            e.keyCode === ARROW_RIGHT
+                          ) {
+                            this.setState(({ inputValue }) => ({
+                              value: autoCompletedQuery(),
+                              inputValue: `${inputValue}${autoCompletedQuery()}`,
+                            }));
+                          }
+                        }
+                      }
+                    },
+                  })}
+                />
+              </TextInput>
+            </InputContainer>
             <Pagination />
 
             <div>

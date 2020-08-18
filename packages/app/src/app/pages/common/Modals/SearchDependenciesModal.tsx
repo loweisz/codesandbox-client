@@ -10,9 +10,9 @@ export const SearchDependenciesModal: FunctionComponent = () => {
     },
   } = useOvermind();
 
-  return (
-    <SearchDependencies
-      onConfirm={(name, version) => addNpmDependency({ name, version })}
-    />
-  );
+  const onConfirm = packages => {
+    packages.forEach(pack => addNpmDependency(pack));
+  };
+
+  return <SearchDependencies onConfirm={onConfirm} />;
 };

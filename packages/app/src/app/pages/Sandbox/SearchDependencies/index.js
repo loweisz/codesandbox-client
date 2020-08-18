@@ -11,6 +11,7 @@ const ConnectedAutoComplete = connectAutoComplete(RawAutoComplete);
 
 export default class SearchDependencies extends React.PureComponent {
   hitToVersionMap = new Map();
+  packages = [];
 
   handleSelect = hit => {
     let version = this.hitToVersionMap.get(hit);
@@ -19,7 +20,7 @@ export default class SearchDependencies extends React.PureComponent {
       version = hit.tags.latest;
     }
 
-    this.props.onConfirm(hit.name, version);
+    this.props.onConfirm([...this.packages, { name: hit.name, version }]);
   };
 
   handleManualSelect = hitName => {
@@ -37,12 +38,19 @@ export default class SearchDependencies extends React.PureComponent {
     }
 
     const depName = splittedName.join('@');
-
-    this.props.onConfirm(depName, version);
+    this.packages.push({ name: depName, version });
   };
 
   handleHitVersionChange = (hit, version) => {
     this.hitToVersionMap.set(hit, version);
+  };
+
+  onConfirm = packages => {
+    packages.forEach(pack => {
+      this.handleManualSelect(pack);
+    });
+    this.props.onConfirm(this.packages);
+    this.packages = [];
   };
 
   render() {
@@ -60,8 +68,8 @@ export default class SearchDependencies extends React.PureComponent {
             hitsPerPage={5}
           />
           <ConnectedAutoComplete
+            onConfirm={this.onConfirm}
             onSelect={this.handleSelect}
-            onManualSelect={this.handleManualSelect}
             onHitVersionChange={this.handleHitVersionChange}
           />
           <footer>
